@@ -1,0 +1,32 @@
+<!--
+  backend.csproj
+  This is the "project file". It tells the .NET build tool two things:
+    1. What kind of app this is (a web app: Sdk="Microsoft.NET.Sdk.Web").
+    2. Which outside libraries (NuGet packages) to download and use.
+  You rarely edit this by hand after setup.
+-->
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <!-- Build for .NET 10. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- Turn on null-safety warnings so mistakes surface at build time. -->
+    <Nullable>enable</Nullable>
+    <!-- Adds common "using" lines automatically so files stay short. -->
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Dapper: the small, fast tool that runs our SQL and fills our C# classes. -->
+    <PackageReference Include="Dapper" Version="2.1.66" />
+    <!-- The SQL Server driver Dapper talks through. -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.1" />
+    <!-- Lets the app read and validate JWT login tokens. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <!-- Lets the app CREATE (sign) a JWT when someone logs in. -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />
+    <!-- BCrypt: securely hashes and checks passwords. -->
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+  </ItemGroup>
+
+</Project>
