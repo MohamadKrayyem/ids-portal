@@ -1,26 +1,16 @@
-/* ---------------------------------------------------------------------------
-   App.css - ALL styling for the portal lives here.
-   Style: white cards on a light gray page, one accent colour, lots of space.
-   No gradients, no animations, no decoration that does not help reading.
-   Every class below is reused across the pages, so pages stay mostly HTML.
---------------------------------------------------------------------------- */
-
+/* Styles for the whole portal: layout, sidebar, panels, tables, forms and dashboard. */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
-/* ------------------------------- settings ------------------------------- */
-/* CSS variables: named values we reuse. Change one here and it changes
-   everywhere. Change --accent to re-brand the whole portal in one line. */
 :root {
   --accent: #2563eb;
   --accent-dark: #1d4ed8;
   --accent-soft: #eff4ff;
 
-  --page-bg: #f4f5f7;
+  --page-bg: #F1F5F9;
   --card-bg: #ffffff;
-  --border: #e3e5e9;
-  --text: #1a1d21;
-  --muted: #6b7280;
-  /* the only two text colors used in tables and dashboard stat cards */
+  --border: #E2E8F0;
+  --text: #0F172A;
+  --muted: #64748B;
   --label: var(--text);
   --label-secondary: var(--muted);
   --danger: #b42318;
@@ -30,16 +20,15 @@
   --warn: #b54708;
   --warn-soft: #fffaeb;
 
-  --radius: 8px;
-  --gap: 20px;
+  --radius: 6px;
+  --gap: 24px;
 
-  /* Dashboard (design "2a") tokens - used only by the sidebar and by the
-     .dash-* classes below, so the rest of the portal is unaffected. */
+  --panel-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+
   --dash-font-display: 'Newsreader', Georgia, serif;
   --dash-font-ui: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif;
   --dash-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
-  /* Dark navy sidebar - the one dark surface in an otherwise light portal. */
   --dash-sidebar-bg: #0f1b2e;
   --dash-sidebar-border: #1e2c42;
   --dash-sidebar-text: #8f9fb8;
@@ -47,9 +36,6 @@
   --dash-sidebar-group-label: #5A6B85;
   --dash-sidebar-brand-accent: #60a5fa;
 
-  /* One accent per sidebar nav group, so "Overview / Catalogue /
-     Organisation" read as separate zones. Three hues only - brightened so
-     they hold up on the dark sidebar; not used outside the sidebar. */
   --nav-overview: #60a5fa;
   --nav-overview-soft: rgba(96, 165, 250, 0.16);
   --nav-catalogue: #2dd4bf;
@@ -58,19 +44,20 @@
   --nav-organisation-soft: rgba(167, 139, 250, 0.16);
 
   --dash-card-bg: #E0EAF7;
-  --dash-card-label: #5a7396;
-  --dash-card-figure: #1b3555;
-  --dash-card-qualifier: #65809F;
+  --dash-card-bg-hover: #D3E1F4;
+  --dash-card-label: #64748B;
+  --dash-card-figure: #0F172A;
+  --dash-card-qualifier: #64748B;
 
-  --dash-panel-border: #e3e9f1;
-  --dash-panel-head-border: #eef2f7;
+  --dash-panel-border: #E2E8F0;
+  --dash-panel-head-border: #E2E8F0;
   --dash-th-bg: #F7FAFD;
   --dash-th-text: #7a8ba3;
   --dash-row-border: #f2f5f9;
   --dash-zebra: #FCFDFE;
 
-  --dash-title: #16283f;
-  --dash-eyebrow: #71809a;
+  --dash-title: #0F172A;
+  --dash-eyebrow: #64748B;
   --dash-body-text: #4d5e77;
   --dash-status: #6a7789;
   --dash-blocked: #DC2626;
@@ -85,8 +72,14 @@
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+}
+
 body {
   margin: 0;
+  height: 100%;
+  overflow: hidden;
   background: var(--page-bg);
 }
 
@@ -107,13 +100,12 @@ h1 { font-size: 22px; }
 h2 { font-size: 17px; }
 h3 { font-size: 15px; }
 
-/* ------------------------------- layout --------------------------------- */
-
-/* sidebar + content, side by side, full height */
 .shell {
   display: flex;
   align-items: stretch;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -122,14 +114,19 @@ h3 { font-size: 15px; }
   background: var(--dash-sidebar-bg);
   border-right: 1px solid var(--dash-sidebar-border);
   padding: 22px 0;
+  overflow-y: auto;
 }
 
 .content {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .topbar {
+  flex: 0 0 auto;
   background: var(--card-bg);
   border-bottom: 1px solid var(--border);
   padding: 0 24px;
@@ -142,6 +139,7 @@ h3 { font-size: 15px; }
 .brand {
   display: flex;
   align-items: center;
+  gap: 5px;
   font-family: var(--dash-font-ui);
   font-size: 15px;
   font-weight: 600;
@@ -153,7 +151,6 @@ h3 { font-size: 15px; }
   color: var(--dash-sidebar-brand-accent);
 }
 
-/* who is signed in, shown at the top right of the content area */
 .who {
   display: flex;
   align-items: center;
@@ -162,9 +159,6 @@ h3 { font-size: 15px; }
   color: var(--muted);
 }
 
-/* nav items stacked vertically in the sidebar, grouped under mono labels.
-   Each .nav-group carries its own accent via --group-color/--group-soft,
-   set by the .nav-group-* modifier below it. */
 .nav {
   display: flex;
   flex-direction: column;
@@ -182,8 +176,6 @@ h3 { font-size: 15px; }
 .nav-group-catalogue    { --group-color: var(--nav-catalogue);    --group-soft: var(--nav-catalogue-soft); }
 .nav-group-organisation { --group-color: var(--nav-organisation); --group-soft: var(--nav-organisation-soft); }
 
-/* divider between groups - the gap it creates is deliberately bigger than
-   the gap between nav items, so that contrast alone reads as "grouping" */
 .nav-group + .nav-group::before {
   content: '';
   display: block;
@@ -218,7 +210,6 @@ h3 { font-size: 15px; }
   color: var(--group-color);
   text-decoration: none;
 }
-/* react-router puts the class "active" on the link of the current page */
 .nav-group a.active {
   background: var(--group-soft);
   border-left-color: var(--group-color);
@@ -227,11 +218,53 @@ h3 { font-size: 15px; }
 }
 
 .main {
-  max-width: 1280px;
-  padding: 28px 24px 60px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px;
 }
 
-/* title line of a page: heading on the left, buttons on the right */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 1280px;
+}
+
+.page > * {
+  flex-shrink: 0;
+}
+
+.panel-fill {
+  flex: 1 1 0;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+}
+.panel-fill > .table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.panel-fill > .empty,
+.panel-fill > .loading {
+  flex: 1;
+}
+
+.panel-fill th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+.card.panel-fill th {
+  background: var(--card-bg);
+}
+
+.page > *:last-child {
+  margin-bottom: 0;
+}
+
 .page-head {
   display: flex;
   align-items: flex-start;
@@ -247,13 +280,12 @@ h3 { font-size: 15px; }
   font-size: 14px;
 }
 
-/* -------------------------------- cards --------------------------------- */
-
 .card {
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
+  box-shadow: var(--panel-shadow);
+  padding: 0;
   margin-bottom: var(--gap);
 }
 
@@ -263,10 +295,22 @@ h3 { font-size: 15px; }
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  padding: 16px 20px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border);
+}
+.card-head h2,
+.card-head h3 {
+  font-family: var(--dash-font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
 }
 
-/* a row of cards that wraps by itself on small screens */
+form.card {
+  padding: 20px;
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -274,34 +318,39 @@ h3 { font-size: 15px; }
   margin-bottom: var(--gap);
 }
 
-/* a table section with no card chrome - heading and rows sit right on the
-   page, no border or background box around them */
 .table-section {
   margin-bottom: var(--gap);
 }
 
-/* Dashboard stat cards - design "2a", scoped here since .stat-* is only
-   ever used on the Dashboard page. */
 .stat-group {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 28px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--gap);
+  margin-bottom: 32px;
 }
 .stat-card {
   background: var(--dash-card-bg);
-  border-radius: 12px;
-  padding: 17px 18px;
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.stat-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.stat-card-link:hover {
+  background: var(--dash-card-bg-hover);
+  text-decoration: none;
 }
 
 .stat-label {
   font-family: var(--dash-font-ui);
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: .02em;
   color: var(--dash-card-label);
 }
-/* big number on the dashboard */
 .stat-value {
   margin-top: 14px;
   font-family: var(--dash-font-display);
@@ -314,11 +363,55 @@ h3 { font-size: 15px; }
 .stat-qualifier {
   margin-top: 8px;
   font-family: var(--dash-font-ui);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--dash-card-qualifier);
 }
 
-/* ------------------------- Dashboard ("2a") ------------------------------ */
+.section-label {
+  font-family: var(--dash-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.card > *:not(.card-head):not(.table-wrap),
+.dash-panel > *:not(.dash-panel-head):not(.table-wrap) {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+.card > *:not(.card-head):not(.table-wrap):first-child,
+.card > .card-head + *:not(.table-wrap),
+.dash-panel > *:not(.dash-panel-head):not(.table-wrap):first-child,
+.dash-panel > .dash-panel-head + *:not(.table-wrap) {
+  padding-top: 20px;
+}
+.card > *:not(.table-wrap):last-child,
+.dash-panel > *:not(.table-wrap):last-child {
+  padding-bottom: 20px;
+}
+
+.card > .dash-panel-body,
+.dash-panel > .dash-panel-body {
+  padding: 20px;
+  min-height: 120px;
+}
+
+.card > .empty,
+.card > .loading,
+.dash-panel > .empty,
+.dash-panel > .loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 120px;
+  padding: 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
 
 .dash-header {
   display: flex;
@@ -344,13 +437,14 @@ h3 { font-size: 15px; }
   color: var(--dash-eyebrow);
 }
 
-/* table panel, e.g. "Deployments by client" / "Not on the latest version" */
 .dash-panel {
   background: #fff;
-  border-radius: 14px;
+  border-radius: var(--radius);
   border: 1px solid var(--dash-panel-border);
+  box-shadow: var(--panel-shadow);
   overflow: hidden;
-  margin-bottom: 22px;
+  padding: 0;
+  margin-bottom: var(--gap);
 }
 .dash-panel-head {
   display: flex;
@@ -358,15 +452,15 @@ h3 { font-size: 15px; }
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 18px 22px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--dash-panel-head-border);
 }
 .dash-panel-title {
   margin: 0;
-  font-family: var(--dash-font-display);
-  font-weight: 400;
-  font-size: 19px;
-  letter-spacing: -.01em;
+  font-family: var(--dash-font-ui);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0;
   color: var(--dash-title);
 }
 .dash-chip-row {
@@ -393,9 +487,18 @@ h3 { font-size: 15px; }
   text-decoration: none;
 }
 
-/* table look inside a dashboard panel only - the bare table/th/td tag
-   styles elsewhere in this file are untouched, so every other page keeps
-   its existing look. */
+.dash-detail {
+  flex: 1 1 0;
+  min-height: 260px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--gap);
+}
+.dash-detail > .dash-panel {
+  margin-bottom: 0;
+  min-height: 0;
+}
+
 .dash-panel table {
   width: 100%;
   border-collapse: collapse;
@@ -446,9 +549,6 @@ h3 { font-size: 15px; }
   text-decoration: underline;
 }
 
-/* status text inside a dashboard panel: plain gray, colored only for the
-   one state that needs attention - everywhere else .status/.status-bad
-   keep their normal portal-wide color. */
 .dash-panel .status {
   color: var(--dash-status);
   font-weight: 500;
@@ -458,9 +558,6 @@ h3 { font-size: 15px; }
   font-weight: 600;
 }
 
-/* ------------------------------- tables --------------------------------- */
-
-/* wrapper keeps a wide table scrolling sideways instead of breaking the page */
 .table-wrap {
   overflow-x: auto;
 }
@@ -496,8 +593,6 @@ tbody tr:hover {
   background: var(--page-bg);
 }
 
-/* links inside tables read as normal text; the row hover background above
-   is what shows they're clickable, not link-blue */
 table a {
   color: var(--label);
   text-decoration: none;
@@ -506,8 +601,6 @@ table a:hover {
   text-decoration: underline;
 }
 
-/* status word in a table cell: gray by default, colored only for a real
-   problem (overdue, failed, inactive) - never decorative */
 .status {
   color: var(--label-secondary);
 }
@@ -526,8 +619,6 @@ table a:hover {
 .col-num {
   text-align: right;
 }
-
-/* ------------------------------- buttons -------------------------------- */
 
 .btn {
   display: inline-block;
@@ -579,8 +670,6 @@ table a:hover {
   flex-wrap: wrap;
 }
 
-/* -------------------------------- forms --------------------------------- */
-
 .field {
   margin-bottom: 16px;
 }
@@ -613,21 +702,18 @@ textarea {
   resize: vertical;
 }
 
-/* two form fields side by side, stacking when the screen is narrow */
 .field-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 0 16px;
 }
 
-/* red message under one invalid field */
 .error-text {
   color: var(--danger);
   font-size: 13px;
   margin-top: 5px;
 }
 
-/* red box at the top of a form or page */
 .error-box {
   background: var(--danger-soft);
   border: 1px solid #f0c8c4;
@@ -638,7 +724,6 @@ textarea {
   margin-bottom: 18px;
 }
 
-/* search box + dropdown filters above a list */
 .filters {
   display: flex;
   gap: 12px;
@@ -651,10 +736,6 @@ textarea {
 .filters select {
   flex: 1 1 160px;
 }
-
-/* ------------------------- badges / status chips ------------------------ */
-/* Used outside tables only (detail-page status, card headings). Inside a
-   table, status is plain text - see .status / .status-bad / .status-warn. */
 
 .badge {
   display: inline-block;
@@ -671,9 +752,6 @@ textarea {
 .badge-off { background: #f0f1f4; color: var(--muted); }
 .badge-accent { background: var(--accent-soft); color: var(--accent-dark); }
 
-/* -------------------------- states and helpers -------------------------- */
-
-/* shown while data loads, and when a list has no rows */
 .loading, .empty {
   padding: 34px 20px;
   text-align: center;
@@ -689,7 +767,6 @@ textarea {
   font-size: 13px;
 }
 
-/* label + value pairs on the detail pages */
 .kv {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -702,8 +779,6 @@ textarea {
   color: var(--muted);
   margin-bottom: 3px;
 }
-
-/* ------------------------- confirm delete dialog ------------------------ */
 
 .overlay {
   position: fixed;
@@ -729,30 +804,23 @@ textarea {
   margin: 10px 0 22px;
 }
 
-/* -------------------------------- charts --------------------------------- */
-/* Donut + horizontal bar charts. Plain CSS/SVG, one hue family only:
-   #94A3B8 (track / light shade) through #1E3A8A (fill / dark shade).
-   Used on the Dashboard, Product Details and Client Details pages. */
-
 .chart-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--gap);
-  margin-bottom: 22px;
+  margin-bottom: var(--gap);
 }
 
-.dash-panel-body {
-  padding: 18px 22px 22px;
-}
-
-/* quiet line shown instead of an empty chart */
 .chart-empty {
-  padding: 8px 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 80px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
-/* donut */
 .donut-chart {
   display: flex;
   align-items: center;
@@ -807,8 +875,6 @@ textarea {
   color: var(--dash-title);
 }
 
-/* horizontal bars: track is always the light shade, the fill is the dark
-   shade and its width is the value as a share of the largest bar */
 .hbar-chart {
   display: flex;
   flex-direction: column;
@@ -849,7 +915,6 @@ textarea {
   color: var(--text);
 }
 
-/* compact variant: mini chart above a table, or inside a header card */
 .hbar-chart-compact {
   gap: 6px;
   margin-bottom: 18px;
@@ -866,12 +931,14 @@ textarea {
 }
 
 @media (max-width: 780px) {
-  .chart-row {
+  .chart-row,
+  .dash-detail {
     grid-template-columns: 1fr;
   }
+  .stat-group {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
-
-/* -------------------------------- login --------------------------------- */
 
 .login-page {
   min-height: 100vh;
@@ -894,16 +961,11 @@ textarea {
   margin-bottom: 6px;
 }
 
-/* ------------------------------ responsive ------------------------------ */
-
 @media (max-width: 640px) {
-  .main {
-    padding: 20px 14px 48px;
-  }
   .topbar {
     padding: 0 14px;
   }
-  .card {
+  form.card {
     padding: 16px;
   }
   .page-head .btn {
@@ -912,6 +974,9 @@ textarea {
   }
   .stat-group {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .main {
+    padding: 20px 14px;
   }
   .dash-title {
     font-size: 26px;

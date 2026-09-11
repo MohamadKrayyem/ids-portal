@@ -1,15 +1,4 @@
-// ---------------------------------------------------------------------------
-// ProductsController.cs
-// Everything about products AND the things that belong to a product:
-// its modules, repositories and documents. Related data shares this controller
-// on purpose, so a reader finds it all in one place.
-//
-// Security:
-//   - Reading  = any signed-in user (Viewer, Editor, Admin).  [Authorize]
-//   - Writing  = Editor or Admin only.  [Authorize(Roles = "Admin,Editor")]
-//   - All SQL uses @parameters. User values are never glued into the SQL text.
-// ---------------------------------------------------------------------------
-
+// Products and what belongs to them: modules, repositories, documents and team.
 using Backend;
 using Dapper;
 using Microsoft.AspNetCore.Authorization;
@@ -19,20 +8,16 @@ namespace Backend.Controllers;
 
 [ApiController]
 [Route("api/products")]
-[Authorize] // must be signed in for every action below unless overridden
+[Authorize]
 public class ProductsController : ControllerBase
 {
     private readonly Db _db;
     public ProductsController(Db db) => _db = db;
 
-    // A single spot for the "something broke" answer, so we never leak details.
     private IActionResult ServerError() =>
         StatusCode(StatusCodes.Status500InternalServerError,
             new { message = "An unexpected error occurred." });
 
-    // GET /api/products?search=trad&status=Active
-    // Both filters are optional. The "(@x IS NULL OR ...)" trick means an unset
-    // filter simply does nothing - no dynamic SQL building required.
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] string? status)
     {
@@ -46,7 +31,6 @@ public class ProductsController : ControllerBase
                   ORDER BY Name",
                 new
                 {
-                    // The % wildcards are added to the VALUE in C#, so the SQL stays fixed.
                     Search = string.IsNullOrWhiteSpace(search) ? null : $"%{search}%",
                     Status = string.IsNullOrWhiteSpace(status) ? null : status
                 });
@@ -55,7 +39,6 @@ public class ProductsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/products/5
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetOne(int id)
     {
@@ -71,7 +54,6 @@ public class ProductsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // POST /api/products
     [HttpPost]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> Create([FromBody] Product input)
@@ -82,7 +64,6 @@ public class ProductsController : ControllerBase
         try
         {
             using var conn = await _db.OpenAsync();
-            // INSERT then read the new Id back, then return the whole fresh row.
             var newId = await conn.ExecuteScalarAsync<int>(
                 @"INSERT INTO Products
                     (Name, Description, BusinessPurpose, LifecycleStatus, CurrentVersion,
@@ -95,13 +76,11 @@ public class ProductsController : ControllerBase
             var created = await conn.QuerySingleAsync<Product>(
                 "SELECT * FROM Products WHERE Id = @Id", new { Id = newId });
 
-            // 201 Created is the correct status for "made a new thing".
             return CreatedAtAction(nameof(GetOne), new { id = newId }, created);
         }
         catch (Exception) { return ServerError(); }
     }
 
-    // PUT /api/products/5
     [HttpPut("{id:int}")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> Update(int id, [FromBody] Product input)
@@ -135,9 +114,6 @@ public class ProductsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // DELETE /api/products/5
-    // The database cascades: deleting a product also removes its modules,
-    // repositories, documents, responsibilities, deployments and environments.
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> Delete(int id)
@@ -149,14 +125,11 @@ public class ProductsController : ControllerBase
                 "DELETE FROM Products WHERE Id = @Id", new { Id = id });
             return affected == 0
                 ? NotFound(new { message = "Product was not found." })
-                : NoContent(); // 204: done, nothing to send back
+                : NoContent();
         }
         catch (Exception) { return ServerError(); }
     }
 
-    // ----------------------- nested reads for one product -------------------
-
-    // GET /api/products/5/modules
     [HttpGet("{id:int}/modules")]
     public async Task<IActionResult> GetModules(int id)
     {
@@ -170,7 +143,6 @@ public class ProductsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/products/5/repositories
     [HttpGet("{id:int}/repositories")]
     public async Task<IActionResult> GetRepositories(int id)
     {
@@ -184,7 +156,6 @@ public class ProductsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/products/5/documents
     [HttpGet("{id:int}/documents")]
     public async Task<IActionResult> GetDocuments(int id)
     {
@@ -198,8 +169,6 @@ public class ProductsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/products/5/team
-    // The people responsible for this product, with each person's details joined in.
     [HttpGet("{id:int}/team")]
     public async Task<IActionResult> GetTeam(int id)
     {
@@ -218,7 +187,6 @@ public class ProductsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/products/5/clients  - every client that runs this product.
     [HttpGet("{id:int}/clients")]
     public async Task<IActionResult> GetClients(int id)
     {
@@ -235,11 +203,6 @@ public class ProductsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // ----------------- flat lists the frontend loads once -------------------
-    // The detail pages load a whole list and filter it in the browser, so these
-    // "get everything" endpoints exist alongside the nested reads above.
-
-    // GET /api/modules
     [HttpGet("/api/modules")]
     public async Task<IActionResult> AllModules()
     {
@@ -251,7 +214,6 @@ public class ProductsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/repositories
     [HttpGet("/api/repositories")]
     public async Task<IActionResult> AllRepositories()
     {
@@ -263,7 +225,6 @@ public class ProductsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/documents
     [HttpGet("/api/documents")]
     public async Task<IActionResult> AllDocuments()
     {
@@ -271,6 +232,203 @@ public class ProductsController : ControllerBase
         {
             using var conn = await _db.OpenAsync();
             return Ok(await conn.QueryAsync<Document>("SELECT * FROM Documents ORDER BY Name"));
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
+    [HttpPost("/api/modules")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> CreateModule([FromBody] Module input)
+    {
+        if (input.ProductId <= 0) return BadRequest(new { message = "A product is required." });
+        if (string.IsNullOrWhiteSpace(input.Name))
+            return BadRequest(new { message = "Module name is required." });
+
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var newId = await conn.ExecuteScalarAsync<int>(
+                @"INSERT INTO Modules (ProductId, Name, Description, Status)
+                  VALUES (@ProductId, @Name, @Description, @Status);
+                  SELECT CAST(SCOPE_IDENTITY() AS INT);", input);
+            var created = await conn.QuerySingleAsync<Module>(
+                "SELECT * FROM Modules WHERE Id = @Id", new { Id = newId });
+            return StatusCode(StatusCodes.Status201Created, created);
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
+    [HttpPut("/api/modules/{id:int}")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> UpdateModule(int id, [FromBody] Module input)
+    {
+        if (input.ProductId <= 0) return BadRequest(new { message = "A product is required." });
+        if (string.IsNullOrWhiteSpace(input.Name))
+            return BadRequest(new { message = "Module name is required." });
+
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var affected = await conn.ExecuteAsync(
+                @"UPDATE Modules SET
+                    ProductId = @ProductId, Name = @Name,
+                    Description = @Description, Status = @Status
+                  WHERE Id = @Id",
+                new { input.ProductId, input.Name, input.Description, input.Status, Id = id });
+            if (affected == 0) return NotFound(new { message = "Module was not found." });
+            var updated = await conn.QuerySingleAsync<Module>(
+                "SELECT * FROM Modules WHERE Id = @Id", new { Id = id });
+            return Ok(updated);
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
+    [HttpDelete("/api/modules/{id:int}")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> DeleteModule(int id)
+    {
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var affected = await conn.ExecuteAsync(
+                "DELETE FROM Modules WHERE Id = @Id", new { Id = id });
+            return affected == 0
+                ? NotFound(new { message = "Module was not found." })
+                : NoContent();
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
+    [HttpPost("/api/repositories")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> CreateRepository([FromBody] Repository input)
+    {
+        if (input.ProductId <= 0) return BadRequest(new { message = "A product is required." });
+        if (string.IsNullOrWhiteSpace(input.Name))
+            return BadRequest(new { message = "Repository name is required." });
+
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var newId = await conn.ExecuteScalarAsync<int>(
+                @"INSERT INTO Repositories (ProductId, Name, GithubUrl, MainBranch, Description)
+                  VALUES (@ProductId, @Name, @GithubUrl, @MainBranch, @Description);
+                  SELECT CAST(SCOPE_IDENTITY() AS INT);", input);
+            var created = await conn.QuerySingleAsync<Repository>(
+                "SELECT * FROM Repositories WHERE Id = @Id", new { Id = newId });
+            return StatusCode(StatusCodes.Status201Created, created);
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
+    [HttpPut("/api/repositories/{id:int}")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> UpdateRepository(int id, [FromBody] Repository input)
+    {
+        if (input.ProductId <= 0) return BadRequest(new { message = "A product is required." });
+        if (string.IsNullOrWhiteSpace(input.Name))
+            return BadRequest(new { message = "Repository name is required." });
+
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var affected = await conn.ExecuteAsync(
+                @"UPDATE Repositories SET
+                    ProductId = @ProductId, Name = @Name, GithubUrl = @GithubUrl,
+                    MainBranch = @MainBranch, Description = @Description
+                  WHERE Id = @Id",
+                new
+                {
+                    input.ProductId, input.Name, input.GithubUrl,
+                    input.MainBranch, input.Description, Id = id
+                });
+            if (affected == 0) return NotFound(new { message = "Repository was not found." });
+            var updated = await conn.QuerySingleAsync<Repository>(
+                "SELECT * FROM Repositories WHERE Id = @Id", new { Id = id });
+            return Ok(updated);
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
+    [HttpDelete("/api/repositories/{id:int}")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> DeleteRepository(int id)
+    {
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var affected = await conn.ExecuteAsync(
+                "DELETE FROM Repositories WHERE Id = @Id", new { Id = id });
+            return affected == 0
+                ? NotFound(new { message = "Repository was not found." })
+                : NoContent();
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
+    [HttpPost("/api/documents")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> CreateDocument([FromBody] Document input)
+    {
+        if (input.ProductId <= 0) return BadRequest(new { message = "A product is required." });
+        if (string.IsNullOrWhiteSpace(input.Name))
+            return BadRequest(new { message = "Document name is required." });
+
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var newId = await conn.ExecuteScalarAsync<int>(
+                @"INSERT INTO Documents (ProductId, Name, DocumentType, Description, Url, LastUpdated)
+                  VALUES (@ProductId, @Name, @DocumentType, @Description, @Url, @LastUpdated);
+                  SELECT CAST(SCOPE_IDENTITY() AS INT);", input);
+            var created = await conn.QuerySingleAsync<Document>(
+                "SELECT * FROM Documents WHERE Id = @Id", new { Id = newId });
+            return StatusCode(StatusCodes.Status201Created, created);
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
+    [HttpPut("/api/documents/{id:int}")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> UpdateDocument(int id, [FromBody] Document input)
+    {
+        if (input.ProductId <= 0) return BadRequest(new { message = "A product is required." });
+        if (string.IsNullOrWhiteSpace(input.Name))
+            return BadRequest(new { message = "Document name is required." });
+
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var affected = await conn.ExecuteAsync(
+                @"UPDATE Documents SET
+                    ProductId = @ProductId, Name = @Name, DocumentType = @DocumentType,
+                    Description = @Description, Url = @Url, LastUpdated = @LastUpdated
+                  WHERE Id = @Id",
+                new
+                {
+                    input.ProductId, input.Name, input.DocumentType,
+                    input.Description, input.Url, input.LastUpdated, Id = id
+                });
+            if (affected == 0) return NotFound(new { message = "Document was not found." });
+            var updated = await conn.QuerySingleAsync<Document>(
+                "SELECT * FROM Documents WHERE Id = @Id", new { Id = id });
+            return Ok(updated);
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
+    [HttpDelete("/api/documents/{id:int}")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> DeleteDocument(int id)
+    {
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var affected = await conn.ExecuteAsync(
+                "DELETE FROM Documents WHERE Id = @Id", new { Id = id });
+            return affected == 0
+                ? NotFound(new { message = "Document was not found." })
+                : NoContent();
         }
         catch (Exception) { return ServerError(); }
     }

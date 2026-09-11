@@ -1,3 +1,4 @@
+// ESLint config for the frontend.
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
@@ -19,10 +20,6 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
-      // Every page loads its data with useEffect(() => { load(); }, []).
-      // This rule warns about setState inside an effect, which is aimed at
-      // more advanced patterns; loading data on mount is fine and is the
-      // simplest thing to read, so we switch the rule off for this project.
       'react-hooks/set-state-in-effect': 'off',
     },
   },

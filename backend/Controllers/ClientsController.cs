@@ -1,12 +1,4 @@
-// ---------------------------------------------------------------------------
-// ClientsController.cs
-// Clients, plus what belongs to a client: deployments and their environments.
-// Also hosts GET /api/dashboard, because those counts come mostly from here.
-//
-// Security: reads = any signed-in user; writes = Editor or Admin only.
-// All SQL is parameterised. Environments never hold a secret - only pointers.
-// ---------------------------------------------------------------------------
-
+// Clients, their deployments and environments, plus the dashboard counts.
 using Backend;
 using Dapper;
 using Microsoft.AspNetCore.Authorization;
@@ -25,9 +17,6 @@ public class ClientsController : ControllerBase
         StatusCode(StatusCodes.Status500InternalServerError,
             new { message = "An unexpected error occurred." });
 
-    // =========================== CLIENTS ====================================
-
-    // GET /api/clients?search=bank&status=Active&country=Lebanon
     [HttpGet("/api/clients")]
     public async Task<IActionResult> GetClients(
         [FromQuery] string? search, [FromQuery] string? status, [FromQuery] string? country)
@@ -52,7 +41,6 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/clients/5
     [HttpGet("/api/clients/{id:int}")]
     public async Task<IActionResult> GetClient(int id)
     {
@@ -68,7 +56,6 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // POST /api/clients
     [HttpPost("/api/clients")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> CreateClient([FromBody] Client input)
@@ -90,7 +77,6 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // PUT /api/clients/5
     [HttpPut("/api/clients/{id:int}")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> UpdateClient(int id, [FromBody] Client input)
@@ -116,7 +102,6 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // DELETE /api/clients/5  (cascades to deployments and environments)
     [HttpDelete("/api/clients/{id:int}")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> DeleteClient(int id)
@@ -133,7 +118,6 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/clients/5/deployments  - every product this client runs.
     [HttpGet("/api/clients/{id:int}/deployments")]
     public async Task<IActionResult> GetClientDeployments(int id)
     {
@@ -147,9 +131,24 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // ========================= DEPLOYMENTS ==================================
+    [HttpGet("/api/clients/{id:int}/team")]
+    public async Task<IActionResult> GetClientTeam(int id)
+    {
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var rows = await conn.QueryAsync<ClientTeamMember>(
+                @"SELECT DISTINCT t.Id, t.FullName, t.JobTitle, r.Responsibility
+                  FROM Deployments d
+                  JOIN ProductResponsibilities r ON r.ProductId = d.ProductId
+                  JOIN TeamMembers t             ON t.Id = r.TeamMemberId
+                  WHERE d.ClientId = @Id
+                  ORDER BY t.FullName, r.Responsibility", new { Id = id });
+            return Ok(rows);
+        }
+        catch (Exception) { return ServerError(); }
+    }
 
-    // GET /api/deployments?clientId=1&productId=2&status=Live
     [HttpGet("/api/deployments")]
     public async Task<IActionResult> GetDeployments(
         [FromQuery] int? clientId, [FromQuery] int? productId, [FromQuery] string? status)
@@ -173,7 +172,6 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/deployments/5
     [HttpGet("/api/deployments/{id:int}")]
     public async Task<IActionResult> GetDeployment(int id)
     {
@@ -189,7 +187,6 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // POST /api/deployments
     [HttpPost("/api/deployments")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> CreateDeployment([FromBody] Deployment input)
@@ -213,7 +210,6 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // PUT /api/deployments/5
     [HttpPut("/api/deployments/{id:int}")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> UpdateDeployment(int id, [FromBody] Deployment input)
@@ -243,7 +239,6 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // DELETE /api/deployments/5  (cascades to its environments)
     [HttpDelete("/api/deployments/{id:int}")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> DeleteDeployment(int id)
@@ -260,11 +255,6 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // ========================= ENVIRONMENTS =================================
-    // Read-only here. Environments store only an AccessReference pointer,
-    // never a password, key or connection secret.
-
-    // GET /api/environments
     [HttpGet("/api/environments")]
     public async Task<IActionResult> GetEnvironments()
     {
@@ -276,7 +266,6 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/deployments/5/environments
     [HttpGet("/api/deployments/{id:int}/environments")]
     public async Task<IActionResult> GetDeploymentEnvironments(int id)
     {
@@ -290,16 +279,89 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // =========================== DASHBOARD ==================================
+    [HttpPost("/api/environments")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> CreateEnvironment([FromBody] Backend.Environment input)
+    {
+        if (input.DeploymentId <= 0)
+            return BadRequest(new { message = "A deployment is required." });
+        if (string.IsNullOrWhiteSpace(input.Name))
+            return BadRequest(new { message = "Environment name is required." });
 
-    // GET /api/dashboard  - the counts the dashboard shows, in one call.
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var newId = await conn.ExecuteScalarAsync<int>(
+                @"INSERT INTO Environments
+                    (DeploymentId, Name, EnvironmentType, Purpose, ServerName, OperatingSystem,
+                     ApplicationUrl, DatabaseInfo, MonitoringLink, AccessReference, Notes)
+                  VALUES
+                    (@DeploymentId, @Name, @EnvironmentType, @Purpose, @ServerName, @OperatingSystem,
+                     @ApplicationUrl, @DatabaseInfo, @MonitoringLink, @AccessReference, @Notes);
+                  SELECT CAST(SCOPE_IDENTITY() AS INT);", input);
+            var created = await conn.QuerySingleAsync<Backend.Environment>(
+                "SELECT * FROM Environments WHERE Id = @Id", new { Id = newId });
+            return StatusCode(StatusCodes.Status201Created, created);
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
+    [HttpPut("/api/environments/{id:int}")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> UpdateEnvironment(int id, [FromBody] Backend.Environment input)
+    {
+        if (input.DeploymentId <= 0)
+            return BadRequest(new { message = "A deployment is required." });
+        if (string.IsNullOrWhiteSpace(input.Name))
+            return BadRequest(new { message = "Environment name is required." });
+
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var affected = await conn.ExecuteAsync(
+                @"UPDATE Environments SET
+                    DeploymentId = @DeploymentId, Name = @Name, EnvironmentType = @EnvironmentType,
+                    Purpose = @Purpose, ServerName = @ServerName, OperatingSystem = @OperatingSystem,
+                    ApplicationUrl = @ApplicationUrl, DatabaseInfo = @DatabaseInfo,
+                    MonitoringLink = @MonitoringLink, AccessReference = @AccessReference, Notes = @Notes
+                  WHERE Id = @Id",
+                new
+                {
+                    input.DeploymentId, input.Name, input.EnvironmentType, input.Purpose,
+                    input.ServerName, input.OperatingSystem, input.ApplicationUrl,
+                    input.DatabaseInfo, input.MonitoringLink, input.AccessReference,
+                    input.Notes, Id = id
+                });
+            if (affected == 0) return NotFound(new { message = "Environment was not found." });
+            var updated = await conn.QuerySingleAsync<Backend.Environment>(
+                "SELECT * FROM Environments WHERE Id = @Id", new { Id = id });
+            return Ok(updated);
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
+    [HttpDelete("/api/environments/{id:int}")]
+    [Authorize(Roles = "Admin,Editor")]
+    public async Task<IActionResult> DeleteEnvironment(int id)
+    {
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var affected = await conn.ExecuteAsync(
+                "DELETE FROM Environments WHERE Id = @Id", new { Id = id });
+            return affected == 0
+                ? NotFound(new { message = "Environment was not found." })
+                : NoContent();
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
     [HttpGet("/api/dashboard")]
     public async Task<IActionResult> GetDashboard()
     {
         try
         {
             using var conn = await _db.OpenAsync();
-            // One round-trip returns several single-number results in order.
             using var multi = await conn.QueryMultipleAsync(
                 @"SELECT COUNT(*) FROM Products;
                   SELECT COUNT(*) FROM Products WHERE LifecycleStatus = 'Active';
@@ -308,18 +370,23 @@ public class ClientsController : ControllerBase
                   SELECT COUNT(*) FROM Deployments;
                   SELECT COUNT(*) FROM Deployments WHERE Status = 'Live';
                   SELECT COUNT(*) FROM Environments;
-                  SELECT COUNT(*) FROM Environments WHERE EnvironmentType = 'Production';");
+                  SELECT COUNT(*) FROM Environments WHERE EnvironmentType = 'Production';
+                  SELECT COUNT(*) FROM TeamMembers;
+                  SELECT TOP 5 Id, Name, LifecycleStatus, UpdatedAt
+                    FROM Products ORDER BY UpdatedAt DESC;");
 
-            var result = new
+            var result = new DashboardStats
             {
-                products               = await multi.ReadSingleAsync<int>(),
-                activeProducts         = await multi.ReadSingleAsync<int>(),
-                clients                = await multi.ReadSingleAsync<int>(),
-                activeClients          = await multi.ReadSingleAsync<int>(),
-                deployments            = await multi.ReadSingleAsync<int>(),
-                liveDeployments        = await multi.ReadSingleAsync<int>(),
-                environments           = await multi.ReadSingleAsync<int>(),
-                productionEnvironments = await multi.ReadSingleAsync<int>()
+                Products               = await multi.ReadSingleAsync<int>(),
+                ActiveProducts         = await multi.ReadSingleAsync<int>(),
+                Clients                = await multi.ReadSingleAsync<int>(),
+                ActiveClients          = await multi.ReadSingleAsync<int>(),
+                Deployments            = await multi.ReadSingleAsync<int>(),
+                LiveDeployments        = await multi.ReadSingleAsync<int>(),
+                Environments           = await multi.ReadSingleAsync<int>(),
+                ProductionEnvironments = await multi.ReadSingleAsync<int>(),
+                TeamMembers            = await multi.ReadSingleAsync<int>(),
+                RecentProducts         = await multi.ReadAsync<RecentProduct>()
             };
             return Ok(result);
         }

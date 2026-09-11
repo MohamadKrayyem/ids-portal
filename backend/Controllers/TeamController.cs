@@ -1,9 +1,4 @@
-// ---------------------------------------------------------------------------
-// TeamController.cs
 // Team members and the responsibilities that link a member to a product.
-// Reads = any signed-in user; writes = Editor or Admin. All SQL parameterised.
-// ---------------------------------------------------------------------------
-
 using Backend;
 using Dapper;
 using Microsoft.AspNetCore.Authorization;
@@ -22,9 +17,6 @@ public class TeamController : ControllerBase
         StatusCode(StatusCodes.Status500InternalServerError,
             new { message = "An unexpected error occurred." });
 
-    // ========================= TEAM MEMBERS =================================
-
-    // GET /api/teammembers?search=maya
     [HttpGet("/api/teammembers")]
     public async Task<IActionResult> GetMembers([FromQuery] string? search)
     {
@@ -41,7 +33,6 @@ public class TeamController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // GET /api/teammembers/5
     [HttpGet("/api/teammembers/{id:int}")]
     public async Task<IActionResult> GetMember(int id)
     {
@@ -57,7 +48,6 @@ public class TeamController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // POST /api/teammembers
     [HttpPost("/api/teammembers")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> CreateMember([FromBody] TeamMember input)
@@ -79,7 +69,6 @@ public class TeamController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // PUT /api/teammembers/5
     [HttpPut("/api/teammembers/{id:int}")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> UpdateMember(int id, [FromBody] TeamMember input)
@@ -104,7 +93,6 @@ public class TeamController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // DELETE /api/teammembers/5  (cascades to that member's responsibilities)
     [HttpDelete("/api/teammembers/{id:int}")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> DeleteMember(int id)
@@ -121,9 +109,6 @@ public class TeamController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // ====================== RESPONSIBILITIES ================================
-
-    // GET /api/responsibilities  - the flat list the product pages load.
     [HttpGet("/api/responsibilities")]
     public async Task<IActionResult> GetResponsibilities()
     {
@@ -136,7 +121,6 @@ public class TeamController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // POST /api/responsibilities  - assign a team member to a product.
     [HttpPost("/api/responsibilities")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> CreateResponsibility([FromBody] ProductResponsibility input)
@@ -158,7 +142,6 @@ public class TeamController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
-    // DELETE /api/responsibilities/5
     [HttpDelete("/api/responsibilities/{id:int}")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> DeleteResponsibility(int id)

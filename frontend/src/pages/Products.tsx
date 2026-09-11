@@ -1,5 +1,4 @@
-// Products list, with a search box and a lifecycle status filter.
-
+// Products list, with search and a lifecycle status filter.
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Product, Deployment } from '../types';
@@ -14,7 +13,6 @@ export default function Products() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // What the user typed / chose. "" means "no filter".
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
 
@@ -83,7 +81,7 @@ export default function Products() {
         </select>
       </div>
 
-      <div className="card">
+      <div className="card panel-fill">
         {loading ? (
           <div className="loading">Loading products...</div>
         ) : visible.length === 0 ? (

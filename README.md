@@ -43,12 +43,13 @@ The API listens on `http://localhost:5000`.
 the API creates one automatically and logs the credentials to the console:
 
 ```
-Email:    admin
-Password: 123
+Seeded first Admin account: admin@idsfintech.com / <20 random characters>
 ```
 
-This is a deliberately weak development credential, not meant for a shared
-or production database.
+The password is generated at startup, printed once, and stored nowhere else -
+it is not in the source and not in git, so each installation gets its own.
+Copy it out of the console before you clear it. If you lose it, delete the
+Admin row and restart to seed a new one.
 
 Sign in with those, then use the Users page to create real accounts and
 change this password (or deactivate/delete the seed account once you have

@@ -1,16 +1,4 @@
-// ---------------------------------------------------------------------------
-// types.ts
-// Every data shape used in the portal. These now mirror the REAL SQL Server
-// tables and the JSON the .NET API returns (camelCase), so what you see here is
-// exactly what the backend sends and accepts.
-//
-// Dates are plain strings (JSON has no date type). A field typed "string | null"
-// mirrors a database column that is allowed to be empty (NULL).
-// ---------------------------------------------------------------------------
-
-// ----------------------------- small choices -------------------------------
-// The value must be one of the listed words. Used to drive dropdowns.
-
+// The data shapes the portal uses, mirroring the JSON the API returns.
 export type Role = 'Admin' | 'Editor' | 'Viewer';
 
 export type ProductLifecycle = 'Active' | 'Maintenance' | 'Planned' | 'Deprecated';
@@ -21,9 +9,6 @@ export type DeploymentStatus = 'Live' | 'Pilot' | 'Suspended';
 
 export type EnvironmentType = 'Development' | 'Testing' | 'UAT' | 'Production';
 
-// -------------------------------- User -------------------------------------
-// A login account for the portal. No password field ever reaches the browser.
-
 export interface User {
   id: number;
   fullName: string;
@@ -33,14 +18,12 @@ export interface User {
   createdAt: string;
 }
 
-// ------------------------------- Product -----------------------------------
-
 export interface Product {
   id: number;
   name: string;
   description: string | null;
   businessPurpose: string | null;
-  lifecycleStatus: string; // one of ProductLifecycle
+  lifecycleStatus: string;
   currentVersion: string | null;
   supportedMarkets: string | null;
   criticality: string | null;
@@ -50,8 +33,6 @@ export interface Product {
   updatedAt: string;
 }
 
-// ------------------------------- Module ------------------------------------
-
 export interface Module {
   id: number;
   productId: number;
@@ -60,20 +41,15 @@ export interface Module {
   status: string | null;
 }
 
-// ------------------------------- Client ------------------------------------
-
 export interface Client {
   id: number;
   companyName: string;
   country: string | null;
-  contactInfo: string | null; // free text: name / email / phone together
-  status: string | null; // one of ClientStatus
+  contactInfo: string | null;
+  status: string | null;
   notes: string | null;
   createdAt: string;
 }
-
-// ----------------------------- Deployment ----------------------------------
-// Links ONE client to ONE product.
 
 export interface Deployment {
   id: number;
@@ -82,20 +58,16 @@ export interface Deployment {
   productVersion: string | null;
   enabledModules: string | null;
   goLiveDate: string | null;
-  status: string | null; // one of DeploymentStatus
+  status: string | null;
   supportTier: string | null;
   notes: string | null;
 }
-
-// ----------------------------- Environment ---------------------------------
-// A running copy of a deployment. SECURITY: never a password, key or token -
-// accessReference is only a pointer to where access is requested.
 
 export interface Environment {
   id: number;
   deploymentId: number;
   name: string;
-  environmentType: string | null; // one of EnvironmentType
+  environmentType: string | null;
   purpose: string | null;
   serverName: string | null;
   operatingSystem: string | null;
@@ -106,8 +78,6 @@ export interface Environment {
   notes: string | null;
 }
 
-// ------------------------------ TeamMember ---------------------------------
-
 export interface TeamMember {
   id: number;
   fullName: string;
@@ -117,9 +87,6 @@ export interface TeamMember {
   status: string | null;
 }
 
-// ------------------------- ProductResponsibility ----------------------------
-// Links a Product to a TeamMember and says what they do on it.
-
 export interface ProductResponsibility {
   id: number;
   productId: number;
@@ -128,7 +95,12 @@ export interface ProductResponsibility {
   description: string | null;
 }
 
-// ----------------------------- Repository ----------------------------------
+export interface ClientTeamMember {
+  id: number;
+  fullName: string;
+  jobTitle: string | null;
+  responsibility: string;
+}
 
 export interface Repository {
   id: number;
@@ -138,9 +110,6 @@ export interface Repository {
   mainBranch: string | null;
   description: string | null;
 }
-
-// ---------------------------- DocumentLink ----------------------------------
-// Maps to the Documents table. We store the link, not the file.
 
 export interface DocumentLink {
   id: number;
@@ -152,8 +121,6 @@ export interface DocumentLink {
   lastUpdated: string | null;
 }
 
-// -------------------------------- Auth --------------------------------------
-
 export interface LoginRequest {
   email: string;
   password: string;
@@ -164,7 +131,6 @@ export interface LoginResponse {
   user: User;
 }
 
-// Admin-only: the body for creating a new login account.
 export interface CreateUserRequest {
   fullName: string;
   email: string;
@@ -172,15 +138,22 @@ export interface CreateUserRequest {
   role: Role;
 }
 
-// ------------------------------ Input shapes --------------------------------
-// What the create/update forms send. The server owns id and the timestamps,
-// so those are left out here.
-
 export type ProductInput = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>;
 export type ClientInput = Omit<Client, 'id' | 'createdAt'>;
+export type TeamMemberInput = Omit<TeamMember, 'id'>;
+export type DeploymentInput = Omit<Deployment, 'id'>;
+export type EnvironmentInput = Omit<Environment, 'id'>;
+export type ModuleInput = Omit<Module, 'id'>;
+export type RepositoryInput = Omit<Repository, 'id'>;
+export type DocumentInput = Omit<DocumentLink, 'id'>;
+export type ResponsibilityInput = Omit<ProductResponsibility, 'id'>;
 
-// ----------------------------- Dashboard -------------------------------------
-// Matches the shape returned by GET /api/dashboard.
+export interface RecentProduct {
+  id: number;
+  name: string;
+  lifecycleStatus: string;
+  updatedAt: string;
+}
 
 export interface DashboardStats {
   products: number;
@@ -191,4 +164,7 @@ export interface DashboardStats {
   liveDeployments: number;
   environments: number;
   productionEnvironments: number;
+  teamMembers: number;
+
+  recentProducts: RecentProduct[];
 }

@@ -1,6 +1,4 @@
-// One form used for both creating and editing a client.
-// No id in the URL -> create. An id in the URL -> edit.
-
+// Create or edit a client (an id in the URL means edit).
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import type { ClientStatus } from '../types';

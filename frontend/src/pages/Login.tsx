@@ -1,5 +1,4 @@
-// Login page. Shown by App.tsx whenever nobody is signed in.
-
+// Login page, shown whenever nobody is signed in.
 import { useState } from 'react';
 import { useAuth } from '../auth';
 
@@ -12,10 +11,9 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
 
   async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault(); // stop the browser reloading the page
+    event.preventDefault();
     setError('');
 
-    // Validation before we bother the server.
     if (!email.trim()) {
       setError('Please enter your email.');
       return;
@@ -28,7 +26,6 @@ export default function Login() {
     try {
       setBusy(true);
       await signIn(email, password);
-      // No navigation needed: App.tsx sees the user and shows the portal.
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not sign in.');
     } finally {
@@ -40,7 +37,7 @@ export default function Login() {
     <div className="login-page">
       <form className="login-box" onSubmit={handleSubmit}>
         <h1>
-          IDS <span style={{ color: 'var(--accent)' }}>Portal</span>
+          IDS <span style={{ color: 'var(--accent)' }}>Fintech</span>
         </h1>
         <p className="muted small" style={{ marginBottom: 24 }}>
           Internal product directory. Staff only.

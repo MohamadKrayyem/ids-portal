@@ -1,9 +1,8 @@
-// Clients list, with a search box and status/country filters.
-
+// Clients list, with search and status/country/product filters.
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { Client, Deployment } from '../types';
-import { getClients, getDeployments } from '../api';
+import type { Client, Deployment, Product } from '../types';
+import { getClients, getDeployments, getProducts } from '../api';
 import { useAuth } from '../auth';
 
 export default function Clients() {
@@ -11,20 +10,27 @@ export default function Clients() {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [country, setCountry] = useState('');
+  const [productId, setProductId] = useState('');
 
   async function load() {
     try {
       setLoading(true);
       setError('');
-      const [c, d] = await Promise.all([getClients(), getDeployments()]);
+      const [c, d, p] = await Promise.all([
+        getClients(),
+        getDeployments(),
+        getProducts(),
+      ]);
       setClients(c);
       setDeployments(d);
+      setProducts(p);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load clients.');
     } finally {
@@ -47,7 +53,12 @@ export default function Clients() {
       (c.country || '').toLowerCase().includes(text);
     const matchesStatus = status === '' || c.status === status;
     const matchesCountry = country === '' || c.country === country;
-    return matchesText && matchesStatus && matchesCountry;
+    const matchesProduct =
+      productId === '' ||
+      deployments.some(
+        (d) => d.clientId === c.id && d.productId === Number(productId)
+      );
+    return matchesText && matchesStatus && matchesCountry && matchesProduct;
   });
 
   function statusClass(value: string | null) {
@@ -91,9 +102,17 @@ export default function Clients() {
             </option>
           ))}
         </select>
+        <select value={productId} onChange={(e) => setProductId(e.target.value)}>
+          <option value="">All products</option>
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
       </div>
 
-      <div className="card">
+      <div className="card panel-fill">
         {loading ? (
           <div className="loading">Loading clients...</div>
         ) : visible.length === 0 ? (

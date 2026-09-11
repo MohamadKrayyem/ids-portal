@@ -1,26 +1,26 @@
+-- Full SQL Server schema for the IDS Portal database: tables, keys and indexes.
+
 CREATE DATABASE IdsPortal;
 GO
 USE IdsPortal;
 GO
 
--- ── Users: login accounts for the portal ──
 CREATE TABLE Users (
     Id           INT IDENTITY(1,1) PRIMARY KEY,
     FullName     NVARCHAR(120)  NOT NULL,
     Email        NVARCHAR(160)  NOT NULL UNIQUE,
-    PasswordHash NVARCHAR(255)  NOT NULL,   -- never the password itself
-    Role         NVARCHAR(20)   NOT NULL,   -- Admin | Editor | Viewer
+    PasswordHash NVARCHAR(255)  NOT NULL,
+    Role         NVARCHAR(20)   NOT NULL,
     IsActive     BIT            NOT NULL DEFAULT 1,
     CreatedAt    DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME()
 );
 
--- ── Products ──
 CREATE TABLE Products (
     Id               INT IDENTITY(1,1) PRIMARY KEY,
     Name             NVARCHAR(150)  NOT NULL,
     Description      NVARCHAR(1000) NULL,
     BusinessPurpose  NVARCHAR(1000) NULL,
-    LifecycleStatus  NVARCHAR(30)   NOT NULL,  -- Active | Maintenance | Planned | Deprecated
+    LifecycleStatus  NVARCHAR(30)   NOT NULL,
     CurrentVersion   NVARCHAR(40)   NULL,
     SupportedMarkets NVARCHAR(300)  NULL,
     Criticality      NVARCHAR(30)   NULL,
@@ -30,7 +30,6 @@ CREATE TABLE Products (
     UpdatedAt        DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME()
 );
 
--- ── Modules: belong to a product ──
 CREATE TABLE Modules (
     Id          INT IDENTITY(1,1) PRIMARY KEY,
     ProductId   INT            NOT NULL,
@@ -41,7 +40,6 @@ CREATE TABLE Modules (
         REFERENCES Products(Id) ON DELETE CASCADE
 );
 
--- ── Clients ──
 CREATE TABLE Clients (
     Id          INT IDENTITY(1,1) PRIMARY KEY,
     CompanyName NVARCHAR(200)  NOT NULL,
@@ -52,8 +50,6 @@ CREATE TABLE Clients (
     CreatedAt   DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME()
 );
 
--- ── Deployments: the bridge between a Client and a Product ──
--- One row = "this client runs this product at this version"
 CREATE TABLE Deployments (
     Id             INT IDENTITY(1,1) PRIMARY KEY,
     ClientId       INT            NOT NULL,
@@ -70,14 +66,11 @@ CREATE TABLE Deployments (
         REFERENCES Products(Id)
 );
 
--- ── Environments: belong to a deployment ──
--- NOTE: no passwords, no keys, no tokens. AccessReference is only a
--- pointer to where access is requested.
 CREATE TABLE Environments (
     Id                 INT IDENTITY(1,1) PRIMARY KEY,
     DeploymentId       INT            NOT NULL,
     Name               NVARCHAR(100)  NOT NULL,
-    EnvironmentType    NVARCHAR(40)   NULL,   -- Development | Testing | UAT | Production
+    EnvironmentType    NVARCHAR(40)   NULL,
     Purpose            NVARCHAR(300)  NULL,
     ServerName         NVARCHAR(150)  NULL,
     OperatingSystem    NVARCHAR(100)  NULL,
@@ -90,7 +83,6 @@ CREATE TABLE Environments (
         REFERENCES Deployments(Id) ON DELETE CASCADE
 );
 
--- ── Team members: staff involved with products ──
 CREATE TABLE TeamMembers (
     Id         INT IDENTITY(1,1) PRIMARY KEY,
     FullName   NVARCHAR(120) NOT NULL,
@@ -100,7 +92,6 @@ CREATE TABLE TeamMembers (
     Status     NVARCHAR(30)  NULL
 );
 
--- ── Product responsibilities: links a team member to a product ──
 CREATE TABLE ProductResponsibilities (
     Id             INT IDENTITY(1,1) PRIMARY KEY,
     ProductId      INT            NOT NULL,
@@ -113,7 +104,6 @@ CREATE TABLE ProductResponsibilities (
         REFERENCES TeamMembers(Id) ON DELETE CASCADE
 );
 
--- ── Repositories: code repos per product ──
 CREATE TABLE Repositories (
     Id          INT IDENTITY(1,1) PRIMARY KEY,
     ProductId   INT            NOT NULL,
@@ -125,7 +115,6 @@ CREATE TABLE Repositories (
         REFERENCES Products(Id) ON DELETE CASCADE
 );
 
--- ── Documents: doc links per product ──
 CREATE TABLE Documents (
     Id           INT IDENTITY(1,1) PRIMARY KEY,
     ProductId    INT            NOT NULL,
@@ -139,7 +128,6 @@ CREATE TABLE Documents (
 );
 GO
 
--- ── Indexes for the searches the portal does most ──
 CREATE INDEX IX_Products_Name       ON Products(Name);
 CREATE INDEX IX_Clients_CompanyName ON Clients(CompanyName);
 CREATE INDEX IX_Deployments_Client  ON Deployments(ClientId);

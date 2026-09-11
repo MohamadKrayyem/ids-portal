@@ -1,6 +1,4 @@
-// One form used for both creating and editing a product.
-// No id in the URL  -> create. An id in the URL -> edit.
-
+// Create or edit a product (an id in the URL means edit).
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import type { ProductLifecycle } from '../types';
@@ -12,7 +10,6 @@ export default function ProductForm() {
   const isEdit = params.id !== undefined;
   const productId = Number(params.id);
 
-  // One piece of state per field. Simple and easy to follow.
   const [name, setName] = useState('');
   const [lifecycleStatus, setLifecycleStatus] = useState<ProductLifecycle>('Active');
   const [currentVersion, setCurrentVersion] = useState('');
@@ -26,7 +23,6 @@ export default function ProductForm() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  // Field name -> message. Empty object means the form is valid.
   const [problems, setProblems] = useState<Record<string, string>>({});
 
   async function load() {

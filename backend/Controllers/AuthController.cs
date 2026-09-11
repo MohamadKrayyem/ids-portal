@@ -1,14 +1,4 @@
-// ---------------------------------------------------------------------------
-// AuthController.cs
-// One job: log a user in.
-//   1. Find the user by email.
-//   2. Check the typed password against the stored BCrypt hash.
-//   3. If good, hand back a signed JWT that proves who they are.
-//
-// The JWT carries the user's id, email and role. Every other controller trusts
-// that token instead of hitting the database to ask "who is this?" again.
-// ---------------------------------------------------------------------------
-
+// Login: checks the password against its BCrypt hash and returns a signed JWT.
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -26,20 +16,19 @@ public class AuthController : ControllerBase
 {
     private readonly Db _db;
     private readonly IConfiguration _config;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(Db db, IConfiguration config)
+    public AuthController(Db db, IConfiguration config, ILogger<AuthController> logger)
     {
         _db = db;
         _config = config;
+        _logger = logger;
     }
 
-    // POST /api/auth/login
-    // [AllowAnonymous] because you obviously cannot be logged in yet when you log in.
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        // --- validate input ---
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
         {
             return BadRequest(new { message = "Email and password are required." });
@@ -49,13 +38,10 @@ public class AuthController : ControllerBase
         {
             using var conn = await _db.OpenAsync();
 
-            // Parameterised: the email is a @parameter, never glued into the SQL text.
             var user = await conn.QuerySingleOrDefaultAsync<User>(
                 "SELECT * FROM Users WHERE Email = @Email",
                 new { Email = request.Email.Trim() });
 
-            // Same vague message whether the email is unknown or the password is
-            // wrong, so an attacker cannot learn which emails exist.
             if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
                 return Unauthorized(new { message = "Email or password is not correct." });
@@ -69,18 +55,19 @@ public class AuthController : ControllerBase
 
             var token = CreateToken(user);
 
-            // user.PasswordHash is [JsonIgnore], so it is stripped from this response.
             return Ok(new LoginResponse { Token = token, User = user });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Never send the raw exception to the client.
+            // The client still gets a generic message, but the real cause is logged so a
+            // broken connection string or database does not present as a silent 500.
+            _logger.LogError(ex, "Login failed for {Email}.", request.Email);
+
             return StatusCode(StatusCodes.Status500InternalServerError,
                 new { message = "An unexpected error occurred while signing in." });
         }
     }
 
-    // Builds and signs the JWT. The three claims are what protected routes read.
     private string CreateToken(User user)
     {
         var jwt = _config.GetSection("Jwt");
@@ -89,10 +76,8 @@ public class AuthController : ControllerBase
 
         var claims = new[]
         {
-            // The user's id. We read this back later to enforce "not your own account".
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Email, user.Email),
-            // The role drives every [Authorize(Roles = ...)] check in the app.
             new Claim(ClaimTypes.Role, user.Role),
         };
 

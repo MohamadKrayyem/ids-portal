@@ -1,7 +1,4 @@
-// Portal login accounts. Admin only - App.tsx sends everyone else home.
-// New accounts are created here; roles and the active switch are changed
-// straight in the table.
-
+// Admin-only page for managing the portal login accounts.
 import { useEffect, useState } from 'react';
 import type { User, Role } from '../types';
 import { getUsers, createUser, updateUser, deleteUser } from '../api';
@@ -14,7 +11,6 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  // Id of the row we are currently saving, so only that row is disabled.
   const [savingId, setSavingId] = useState<number | null>(null);
   const [toDelete, setToDelete] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -22,7 +18,6 @@ export default function Users() {
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
 
-  // --- new user form ---
   const [showCreate, setShowCreate] = useState(false);
   const [newFullName, setNewFullName] = useState('');
   const [newEmail, setNewEmail] = useState('');
@@ -48,8 +43,6 @@ export default function Users() {
     load();
   }, []);
 
-  // Sends the whole user back with one field changed. The API expects the
-  // complete record, so we spread the old one and override what changed.
   async function save(user: User, changes: Partial<User>) {
     try {
       setSavingId(user.id);
@@ -139,7 +132,7 @@ export default function Users() {
       <div className="page-head">
         <div>
           <h1>Users</h1>
-          <p>Who can sign in to this portal, and what they are allowed to do.</p>
+          <p>Who can sign in to IDS Fintech, and what they are allowed to do.</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowCreate(!showCreate)}>
           {showCreate ? 'Cancel' : 'New user'}
@@ -227,7 +220,7 @@ export default function Users() {
         </select>
       </div>
 
-      <div className="card">
+      <div className="card panel-fill">
         {loading ? (
           <div className="loading">Loading users...</div>
         ) : visible.length === 0 ? (
@@ -248,7 +241,6 @@ export default function Users() {
               </thead>
               <tbody>
                 {visible.map((u) => {
-                  // An admin must not lock themselves out of their own portal.
                   const isMe = currentUser !== null && currentUser.id === u.id;
                   return (
                     <tr key={u.id}>
@@ -305,7 +297,7 @@ export default function Users() {
           <div className="dialog">
             <h2>Delete {toDelete.fullName}?</h2>
             <p>
-              They will lose access to the portal immediately. This cannot be undone.
+              They will lose access to IDS Fintech immediately. This cannot be undone.
             </p>
             <div className="btn-row">
               <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
