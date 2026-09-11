@@ -35,3 +35,8 @@ backend/appsettings.*.json
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Database backup and zipped submissions - too large for the repo,
+# they go in the handover zip instead.
+*.bak
+*.zip
