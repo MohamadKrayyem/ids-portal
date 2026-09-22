@@ -266,6 +266,19 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
+    [HttpGet("/api/environments/{id:int}")]
+    public async Task<IActionResult> GetEnvironment(int id)
+    {
+        try
+        {
+            using var conn = await _db.OpenAsync();
+            var row = await conn.QuerySingleOrDefaultAsync<Backend.Environment>(
+                "SELECT * FROM Environments WHERE Id = @Id", new { Id = id });
+            return row == null ? NotFound(new { message = "Environment was not found." }) : Ok(row);
+        }
+        catch (Exception) { return ServerError(); }
+    }
+
     [HttpGet("/api/deployments/{id:int}/environments")]
     public async Task<IActionResult> GetDeploymentEnvironments(int id)
     {
@@ -279,18 +292,38 @@ public class ClientsController : ControllerBase
         catch (Exception) { return ServerError(); }
     }
 
+    private static readonly string[] EnvironmentTypes = { "Development", "Testing", "UAT", "Production" };
+
+    // Only the deployment (the client + product pair), name and type are required;
+    // every other field is optional.
+    private static string? ValidateEnvironment(Backend.Environment input)
+    {
+        if (input.DeploymentId <= 0) return "Choose a client and a product.";
+        if (string.IsNullOrWhiteSpace(input.Name)) return "Environment name is required.";
+        if (input.Name.Trim().Length > 100) return "Environment name must be 100 characters or fewer.";
+        if (string.IsNullOrWhiteSpace(input.EnvironmentType)) return "Environment type is required.";
+        if (!EnvironmentTypes.Contains(input.EnvironmentType))
+            return "Environment type must be Development, Testing, UAT or Production.";
+        return null;
+    }
+
+    private static Task<bool> DeploymentExists(System.Data.IDbConnection conn, int deploymentId) =>
+        conn.ExecuteScalarAsync<bool>(
+            "SELECT CASE WHEN EXISTS (SELECT 1 FROM Deployments WHERE Id = @Id) THEN 1 ELSE 0 END",
+            new { Id = deploymentId });
+
     [HttpPost("/api/environments")]
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> CreateEnvironment([FromBody] Backend.Environment input)
     {
-        if (input.DeploymentId <= 0)
-            return BadRequest(new { message = "A deployment is required." });
-        if (string.IsNullOrWhiteSpace(input.Name))
-            return BadRequest(new { message = "Environment name is required." });
+        var problem = ValidateEnvironment(input);
+        if (problem != null) return BadRequest(new { message = problem });
 
         try
         {
             using var conn = await _db.OpenAsync();
+            if (!await DeploymentExists(conn, input.DeploymentId))
+                return BadRequest(new { message = "This client does not use that product. Add a deployment first." });
             var newId = await conn.ExecuteScalarAsync<int>(
                 @"INSERT INTO Environments
                     (DeploymentId, Name, EnvironmentType, Purpose, ServerName, OperatingSystem,
@@ -310,14 +343,14 @@ public class ClientsController : ControllerBase
     [Authorize(Roles = "Admin,Editor")]
     public async Task<IActionResult> UpdateEnvironment(int id, [FromBody] Backend.Environment input)
     {
-        if (input.DeploymentId <= 0)
-            return BadRequest(new { message = "A deployment is required." });
-        if (string.IsNullOrWhiteSpace(input.Name))
-            return BadRequest(new { message = "Environment name is required." });
+        var problem = ValidateEnvironment(input);
+        if (problem != null) return BadRequest(new { message = problem });
 
         try
         {
             using var conn = await _db.OpenAsync();
+            if (!await DeploymentExists(conn, input.DeploymentId))
+                return BadRequest(new { message = "This client does not use that product. Add a deployment first." });
             var affected = await conn.ExecuteAsync(
                 @"UPDATE Environments SET
                     DeploymentId = @DeploymentId, Name = @Name, EnvironmentType = @EnvironmentType,
