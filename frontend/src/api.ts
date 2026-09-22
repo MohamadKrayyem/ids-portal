@@ -184,6 +184,10 @@ export async function getEnvironments(): Promise<Environment[]> {
   return request<Environment[]>('/environments');
 }
 
+export async function getEnvironment(id: number): Promise<Environment> {
+  return request<Environment>('/environments/' + id);
+}
+
 export async function createEnvironment(data: EnvironmentInput): Promise<Environment> {
   return request<Environment>('/environments', 'POST', data);
 }

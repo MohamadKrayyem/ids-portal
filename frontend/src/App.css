@@ -489,14 +489,52 @@ form.card {
 
 .dash-detail {
   flex: 1 1 0;
-  min-height: 260px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--gap);
 }
+/* Every detail panel is the same height, so a row reads evenly. */
 .dash-detail > .dash-panel {
   margin-bottom: 0;
-  min-height: 0;
+  min-height: 340px;
+}
+/* A panel on a row of its own. */
+.dash-detail > .dash-panel-wide {
+  grid-column: 1 / -1;
+}
+
+/* Detail tables never scroll sideways: columns keep a fixed share of the
+   panel and long values are cut with an ellipsis instead. */
+.dash-detail .table-wrap,
+.dash-detail .panel-fill > .table-wrap {
+  overflow-x: hidden;
+}
+.dash-detail table {
+  table-layout: fixed;
+}
+.dash-detail th,
+.dash-detail td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The link fills the cell so its own text is the part that gets cut. */
+.dash-detail td a {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-detail .col-status {
+  width: 116px;
+}
+.dash-detail .col-version {
+  width: 124px;
+}
+.dash-detail .col-date {
+  width: 104px;
+}
+.dash-detail .col-num {
+  width: 84px;
 }
 
 .dash-panel table {
@@ -706,6 +744,33 @@ textarea {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 0 16px;
+}
+
+.field-help {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 5px;
+}
+
+/* Collapsible "More details" group in compact forms. */
+.more-toggle {
+  display: inline-block;
+  padding: 0;
+  margin: 0 0 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.more-toggle:hover {
+  color: var(--text);
+}
+.more-details {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
 }
 
 .error-text {
@@ -974,6 +1039,11 @@ textarea {
   }
   .stat-group {
     grid-template-columns: repeat(2, 1fr);
+  }
+  /* Too narrow for every column: drop the least important one rather than
+     scrolling the panel sideways. */
+  .dash-detail .col-optional {
+    display: none;
   }
   .main {
     padding: 20px 14px;

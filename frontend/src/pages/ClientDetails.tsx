@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../auth';
 
 const ENVIRONMENT_TYPE_ORDER = ['Development', 'Testing', 'UAT', 'Production'] as const;
+const DEFAULT_ACCESS_REFERENCE = 'Ask the Infrastructure team';
 
 type ResponsiblePerson = {
   id: number;
@@ -62,6 +63,7 @@ export default function ClientDetails() {
   const [envMonitoring, setEnvMonitoring] = useState('');
   const [envAccess, setEnvAccess] = useState('');
   const [envNotes, setEnvNotes] = useState('');
+  const [envMoreOpen, setEnvMoreOpen] = useState(false);
   const [envProblems, setEnvProblems] = useState<Record<string, string>>({});
   const [envSaving, setEnvSaving] = useState(false);
   const [envToDelete, setEnvToDelete] = useState<Environment | null>(null);
@@ -122,6 +124,7 @@ export default function ClientDetails() {
     setEnvMonitoring('');
     setEnvAccess('');
     setEnvNotes('');
+    setEnvMoreOpen(false);
     setEnvProblems({});
   }
 
@@ -131,10 +134,29 @@ export default function ClientDetails() {
     resetEnvForm();
   }
 
-  function startEnvCreate(deploymentId: number) {
+  // "<Client> - <Product> - <Type>", the suggested name for a new environment.
+  function suggestedEnvName(deploymentId: number, type: string) {
+    const d = deployments.find((x) => x.id === deploymentId);
+    const p = d ? product(d.productId) : undefined;
+    return [client?.companyName, p?.name, type].filter(Boolean).join(' - ');
+  }
+
+  function startEnvCreate(deploymentId: number, type: string) {
     resetEnvForm();
+    setEnvType(type);
+    setEnvName(suggestedEnvName(deploymentId, type));
+    setEnvAccess(DEFAULT_ACCESS_REFERENCE);
     setEnvEditingId(null);
     setFormDeploymentId(deploymentId);
+  }
+
+  // While creating, keep the suggested name in step with the type unless the
+  // user has already typed their own name.
+  function changeEnvType(deploymentId: number, type: string) {
+    if (envEditingId === null && envName === suggestedEnvName(deploymentId, envType)) {
+      setEnvName(suggestedEnvName(deploymentId, type));
+    }
+    setEnvType(type);
   }
 
   function startEnvEdit(e: Environment) {
@@ -148,6 +170,11 @@ export default function ClientDetails() {
     setEnvMonitoring(e.monitoringLink || '');
     setEnvAccess(e.accessReference || '');
     setEnvNotes(e.notes || '');
+    // Open "More details" when editing if any of its fields already hold data.
+    setEnvMoreOpen(
+      [e.purpose, e.operatingSystem, e.databaseInfo, e.monitoringLink, e.accessReference, e.notes]
+        .some((v) => !!v && v.trim() !== ''),
+    );
     setEnvProblems({});
     setEnvEditingId(e.id);
     setFormDeploymentId(e.deploymentId);
@@ -158,11 +185,13 @@ export default function ClientDetails() {
     setError('');
     setMessage('');
 
-    if (!envName.trim()) {
-      setEnvProblems({ name: 'Environment name is required.' });
-      return;
-    }
-    setEnvProblems({});
+    const problems: Record<string, string> = {};
+    if (!envName.trim()) problems.name = 'Environment name is required.';
+    else if (envName.trim().length > 100)
+      problems.name = 'Environment name must be 100 characters or fewer.';
+    if (!envType) problems.type = 'Environment type is required.';
+    setEnvProblems(problems);
+    if (Object.keys(problems).length > 0) return;
 
     const data = {
       deploymentId,
@@ -349,6 +378,13 @@ export default function ClientDetails() {
         deployments.map((d) => {
           const p = product(d.productId);
           const mine = environments.filter((e) => e.deploymentId === d.id);
+          // Types already on this deployment, ignoring the one being edited.
+          const usedTypes = new Set(
+            mine
+              .filter((e) => e.id !== envEditingId)
+              .map((e) => e.environmentType)
+              .filter(Boolean),
+          );
           return (
             <div className="card" key={d.id}>
               <div className="card-head">
@@ -379,20 +415,23 @@ export default function ClientDetails() {
                   >
                     {d.status || '-'}
                   </span>
-                  {canEdit && (
-                    <button
-                      className="btn btn-small"
-                      onClick={() =>
-                        formDeploymentId === d.id && envEditingId === null
-                          ? closeEnvForm()
-                          : startEnvCreate(d.id)
-                      }
-                    >
-                      {formDeploymentId === d.id && envEditingId === null
-                        ? 'Cancel'
-                        : 'Add environment'}
-                    </button>
-                  )}
+                  {canEdit &&
+                    ENVIRONMENT_TYPE_ORDER.map((type) => {
+                      const taken = usedTypes.has(type);
+                      // The wrapper carries the tooltip: disabled buttons do not
+                      // show a title in every browser.
+                      return (
+                        <span key={type} title={taken ? 'Already added' : undefined}>
+                          <button
+                            className="btn btn-small"
+                            onClick={() => startEnvCreate(d.id, type)}
+                            disabled={taken || envSaving}
+                          >
+                            + {type}
+                          </button>
+                        </span>
+                      );
+                    })}
                 </div>
               </div>
 
@@ -432,47 +471,31 @@ export default function ClientDetails() {
                       )}
                     </div>
                     <div className="field">
-                      <label htmlFor={'envType' + d.id}>Environment type</label>
+                      <label htmlFor={'envType' + d.id}>Environment type *</label>
                       <select
                         id={'envType' + d.id}
                         value={envType}
-                        onChange={(e) => setEnvType(e.target.value)}
+                        onChange={(e) => changeEnvType(d.id, e.target.value)}
                       >
                         {ENVIRONMENT_TYPE_ORDER.map((type) => (
-                          <option key={type} value={type}>
-                            {type}
+                          <option key={type} value={type} disabled={usedTypes.has(type)}>
+                            {usedTypes.has(type) ? type + ' (already added)' : type}
                           </option>
                         ))}
                       </select>
+                      {envProblems.type && (
+                        <div className="error-text">{envProblems.type}</div>
+                      )}
                     </div>
                   </div>
 
                   <div className="field-row">
-                    <div className="field">
-                      <label htmlFor={'envPurpose' + d.id}>Purpose</label>
-                      <input
-                        id={'envPurpose' + d.id}
-                        value={envPurpose}
-                        onChange={(e) => setEnvPurpose(e.target.value)}
-                      />
-                    </div>
                     <div className="field">
                       <label htmlFor={'envServer' + d.id}>Server name</label>
                       <input
                         id={'envServer' + d.id}
                         value={envServer}
                         onChange={(e) => setEnvServer(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="field-row">
-                    <div className="field">
-                      <label htmlFor={'envOs' + d.id}>Operating system</label>
-                      <input
-                        id={'envOs' + d.id}
-                        value={envOs}
-                        onChange={(e) => setEnvOs(e.target.value)}
                       />
                     </div>
                     <div className="field">
@@ -485,43 +508,79 @@ export default function ClientDetails() {
                     </div>
                   </div>
 
-                  <div className="field-row">
-                    <div className="field">
-                      <label htmlFor={'envDatabase' + d.id}>Database information</label>
-                      <input
-                        id={'envDatabase' + d.id}
-                        value={envDatabase}
-                        onChange={(e) => setEnvDatabase(e.target.value)}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor={'envMonitoring' + d.id}>Monitoring link</label>
-                      <input
-                        id={'envMonitoring' + d.id}
-                        value={envMonitoring}
-                        onChange={(e) => setEnvMonitoring(e.target.value)}
-                      />
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    className="more-toggle"
+                    aria-expanded={envMoreOpen}
+                    aria-controls={'envMore' + d.id}
+                    onClick={() => setEnvMoreOpen(!envMoreOpen)}
+                  >
+                    {envMoreOpen ? '▾' : '▸'} More details
+                  </button>
 
-                  <div className="field">
-                    <label htmlFor={'envAccess' + d.id}>Access reference</label>
-                    <input
-                      id={'envAccess' + d.id}
-                      value={envAccess}
-                      onChange={(e) => setEnvAccess(e.target.value)}
-                      placeholder="Where access is requested - never a password or key"
-                    />
-                  </div>
+                  {envMoreOpen && (
+                    <div id={'envMore' + d.id} className="more-details">
+                      <div className="field-row">
+                        <div className="field">
+                          <label htmlFor={'envPurpose' + d.id}>Purpose</label>
+                          <input
+                            id={'envPurpose' + d.id}
+                            value={envPurpose}
+                            onChange={(e) => setEnvPurpose(e.target.value)}
+                          />
+                        </div>
+                        <div className="field">
+                          <label htmlFor={'envOs' + d.id}>Operating system</label>
+                          <input
+                            id={'envOs' + d.id}
+                            value={envOs}
+                            onChange={(e) => setEnvOs(e.target.value)}
+                          />
+                        </div>
+                      </div>
 
-                  <div className="field">
-                    <label htmlFor={'envNotes' + d.id}>Notes</label>
-                    <textarea
-                      id={'envNotes' + d.id}
-                      value={envNotes}
-                      onChange={(e) => setEnvNotes(e.target.value)}
-                    />
-                  </div>
+                      <div className="field-row">
+                        <div className="field">
+                          <label htmlFor={'envDatabase' + d.id}>Database information</label>
+                          <input
+                            id={'envDatabase' + d.id}
+                            value={envDatabase}
+                            onChange={(e) => setEnvDatabase(e.target.value)}
+                          />
+                        </div>
+                        <div className="field">
+                          <label htmlFor={'envMonitoring' + d.id}>Monitoring link</label>
+                          <input
+                            id={'envMonitoring' + d.id}
+                            value={envMonitoring}
+                            onChange={(e) => setEnvMonitoring(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="field">
+                        <label htmlFor={'envAccess' + d.id}>Access reference</label>
+                        <input
+                          id={'envAccess' + d.id}
+                          value={envAccess}
+                          onChange={(e) => setEnvAccess(e.target.value)}
+                          aria-describedby={'envAccessHelp' + d.id}
+                        />
+                        <div id={'envAccessHelp' + d.id} className="field-help">
+                          Where access is requested - never a password or key.
+                        </div>
+                      </div>
+
+                      <div className="field">
+                        <label htmlFor={'envNotes' + d.id}>Notes</label>
+                        <textarea
+                          id={'envNotes' + d.id}
+                          value={envNotes}
+                          onChange={(e) => setEnvNotes(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="btn-row">
                     <button type="submit" className="btn btn-primary" disabled={envSaving}>

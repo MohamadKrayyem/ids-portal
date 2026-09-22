@@ -6,13 +6,34 @@ import { getDashboard, getProducts, getClients, getDeployments } from '../api';
 import { useAuth } from '../auth';
 
 const LIFECYCLE_ORDER = ['Active', 'Maintenance', 'Planned', 'Deprecated'] as const;
-const LIFECYCLE_SHADES = ['#CBD5E1', '#94A3B8', '#475569', '#1E3A8A'];
+// Light to dark; the deployment donut uses the first three.
+const DONUT_SHADES = ['#CBD5E1', '#94A3B8', '#475569', '#1E3A8A'];
 const DEPLOYMENT_STATUS_ORDER = ['Live', 'Pilot', 'Suspended'] as const;
 
 const DONUT_CIRCUMFERENCE = 2 * Math.PI * 45;
 
+// Turns counts into the dash lengths and offsets the donut rings are drawn from.
+function toDonutSegments(counts: { label: string; count: number }[], total: number) {
+  let cumulative = 0;
+  return counts.map((c, i) => {
+    const length = total > 0 ? (c.count / total) * DONUT_CIRCUMFERENCE : 0;
+    const segment = { ...c, length, offset: -cumulative, color: DONUT_SHADES[i] };
+    cumulative += length;
+    return segment;
+  });
+}
+
+const MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+// "22 Sep 2026", short enough to stay on one line.
 function updatedOn(value: string) {
-  return value ? value.slice(0, 10) : '-';
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return date.getDate() + ' ' + MONTHS[date.getMonth()] + ' ' + date.getFullYear();
 }
 
 export default function Dashboard() {
@@ -79,22 +100,19 @@ export default function Dashboard() {
     count: products.filter((p) => p.lifecycleStatus === status).length,
   }));
   const lifecycleTotal = products.length;
-  let cumulative = 0;
-  const donutSegments = lifecycleCounts.map((c, i) => {
-    const length = lifecycleTotal > 0 ? (c.count / lifecycleTotal) * DONUT_CIRCUMFERENCE : 0;
-    const segment = { ...c, length, offset: -cumulative, color: LIFECYCLE_SHADES[i] };
-    cumulative += length;
-    return segment;
-  });
+  const donutSegments = toDonutSegments(lifecycleCounts, lifecycleTotal);
 
   const recentProducts = stats.recentProducts ?? [];
+
+  // Each detail panel shows the first few rows only; the rest live on their own page.
+  const DETAIL_ROWS = 5;
 
   const deploymentStatusCounts = DEPLOYMENT_STATUS_ORDER.map((status) => ({
     label: status as string,
     count: deployments.filter((d) => d.status === status).length,
   }));
   const deploymentStatusTotal = deploymentStatusCounts.reduce((sum, c) => sum + c.count, 0);
-  const deploymentStatusMax = Math.max(1, ...deploymentStatusCounts.map((c) => c.count));
+  const deploymentSegments = toDonutSegments(deploymentStatusCounts, deploymentStatusTotal);
 
   return (
     <>
@@ -196,19 +214,39 @@ export default function Dashboard() {
             {deploymentStatusTotal === 0 ? (
               <div className="chart-empty">No deployments recorded yet.</div>
             ) : (
-              <div className="hbar-chart">
-                {deploymentStatusCounts.map((c) => (
-                  <div className="hbar-row" key={c.label}>
-                    <span className="hbar-label">{c.label}</span>
-                    <span className="hbar-track">
-                      <span
-                        className="hbar-fill"
-                        style={{ width: (c.count / deploymentStatusMax) * 100 + '%' }}
+              <div className="donut-chart">
+                <svg className="donut-svg" viewBox="0 0 120 120">
+                  <g transform="rotate(-90 60 60)">
+                    {deploymentSegments.map((seg) => (
+                      <circle
+                        key={seg.label}
+                        cx="60"
+                        cy="60"
+                        r="45"
+                        fill="none"
+                        stroke={seg.color}
+                        strokeWidth="18"
+                        strokeDasharray={`${seg.length} ${DONUT_CIRCUMFERENCE - seg.length}`}
+                        strokeDashoffset={seg.offset}
                       />
-                    </span>
-                    <span className="hbar-count">{c.count}</span>
-                  </div>
-                ))}
+                    ))}
+                  </g>
+                  <text x="60" y="57" textAnchor="middle" className="donut-total-value">
+                    {deploymentStatusTotal}
+                  </text>
+                  <text x="60" y="72" textAnchor="middle" className="donut-total-label">
+                    deployments
+                  </text>
+                </svg>
+                <div className="donut-legend">
+                  {deploymentSegments.map((seg) => (
+                    <div className="donut-legend-item" key={seg.label}>
+                      <span className="donut-legend-swatch" style={{ background: seg.color }} />
+                      <span className="donut-legend-label">{seg.label}</span>
+                      <span className="donut-legend-count">{seg.count}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -236,22 +274,26 @@ export default function Dashboard() {
                 <thead>
                   <tr>
                     <th>Client</th>
-                    <th>Product</th>
-                    <th className="col-num">Version</th>
+                    <th className="col-optional">Product</th>
+                    <th className="col-num col-version">Version</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {behind.map((d) => {
+                  {behind.slice(0, DETAIL_ROWS).map((d) => {
                     const product = products.find((p) => p.id === d.productId);
                     return (
                       <tr key={d.id}>
                         <td>
-                          <Link to={'/clients/' + d.clientId}>{clientName(d.clientId)}</Link>
+                          <Link to={'/clients/' + d.clientId} title={clientName(d.clientId)}>
+                            {clientName(d.clientId)}
+                          </Link>
                         </td>
-                        <td>
-                          <Link to={'/products/' + d.productId}>{productName(d.productId)}</Link>
+                        <td className="col-optional">
+                          <Link to={'/products/' + d.productId} title={productName(d.productId)}>
+                            {productName(d.productId)}
+                          </Link>
                         </td>
-                        <td className="col-num">
+                        <td className="col-num col-version">
                           {d.productVersion} &rarr; {product ? product.currentVersion : '-'}
                         </td>
                       </tr>
@@ -261,45 +303,12 @@ export default function Dashboard() {
               </table>
             </div>
           )}
-        </div>
 
-        <div className="dash-panel panel-fill">
-          <div className="dash-panel-head">
-            <h2 className="dash-panel-title">Products by client count</h2>
-            <div className="dash-chip-row">
-              <Link to="/products" className="dash-chip dash-chip-outline">
-                All products
-              </Link>
-            </div>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Status</th>
-                  <th>Latest version</th>
-                  <th className="col-num">Clients</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      <Link to={'/products/' + p.id}>{p.name}</Link>
-                    </td>
-                    <td className={p.lifecycleStatus === 'Deprecated' ? 'status status-bad' : 'status'}>
-                      {p.lifecycleStatus}
-                    </td>
-                    <td>{p.currentVersion || '-'}</td>
-                    <td className="col-num">
-                      {deployments.filter((d) => d.productId === p.id).length}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {behind.length > DETAIL_ROWS && (
+            <p className="muted small">
+              Showing {DETAIL_ROWS} of {behind.length} deployments.
+            </p>
+          )}
         </div>
 
         <div className="dash-panel panel-fill">
@@ -315,29 +324,92 @@ export default function Dashboard() {
                 <thead>
                   <tr>
                     <th>Product</th>
-                    <th>Status</th>
-                    <th>Updated</th>
+                    <th className="col-optional col-status">Status</th>
+                    <th className="col-date">Updated</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {recentProducts.map((p) => (
+                  {recentProducts.slice(0, DETAIL_ROWS).map((p) => (
                     <tr key={p.id}>
                       <td>
-                        <Link to={'/products/' + p.id}>{p.name}</Link>
+                        <Link to={'/products/' + p.id} title={p.name}>
+                          {p.name}
+                        </Link>
                       </td>
                       <td
                         className={
-                          p.lifecycleStatus === 'Deprecated' ? 'status status-bad' : 'status'
+                          p.lifecycleStatus === 'Deprecated'
+                            ? 'status status-bad col-optional col-status'
+                            : 'status col-optional col-status'
                         }
                       >
                         {p.lifecycleStatus}
                       </td>
-                      <td className="muted">{updatedOn(p.updatedAt)}</td>
+                      <td className="muted col-date">{updatedOn(p.updatedAt)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          )}
+
+          {recentProducts.length > DETAIL_ROWS && (
+            <p className="muted small">
+              Showing {DETAIL_ROWS} of {recentProducts.length} products.
+            </p>
+          )}
+        </div>
+
+        <div className="dash-panel panel-fill dash-panel-wide">
+          <div className="dash-panel-head">
+            <h2 className="dash-panel-title">Products by client count</h2>
+            <div className="dash-chip-row">
+              <Link to="/products" className="dash-chip dash-chip-outline">
+                All products
+              </Link>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th className="col-optional col-status">Status</th>
+                  <th className="col-version">Latest version</th>
+                  <th className="col-num">Clients</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.slice(0, DETAIL_ROWS).map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <Link to={'/products/' + p.id} title={p.name}>
+                        {p.name}
+                      </Link>
+                    </td>
+                    <td
+                      className={
+                        p.lifecycleStatus === 'Deprecated'
+                          ? 'status status-bad col-optional col-status'
+                          : 'status col-optional col-status'
+                      }
+                    >
+                      {p.lifecycleStatus}
+                    </td>
+                    <td className="col-version">{p.currentVersion || '-'}</td>
+                    <td className="col-num">
+                      {deployments.filter((d) => d.productId === p.id).length}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {products.length > DETAIL_ROWS && (
+            <p className="muted small">
+              Showing {DETAIL_ROWS} of {products.length} products.
+            </p>
           )}
         </div>
       </div>

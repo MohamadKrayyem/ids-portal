@@ -10,6 +10,8 @@ import Clients from './pages/Clients';
 import ClientDetails from './pages/ClientDetails';
 import ClientForm from './pages/ClientForm';
 import Deployments from './pages/Deployments';
+import Environments from './pages/Environments';
+import EnvironmentForm from './pages/EnvironmentForm';
 import TeamMembers from './pages/TeamMembers';
 import Users from './pages/Users';
 import './App.css';
@@ -25,7 +27,7 @@ export default function App() {
 }
 
 function Portal() {
-  const { currentUser, logout, isAdmin } = useAuth();
+  const { currentUser, logout, isAdmin, canEdit } = useAuth();
 
   if (!currentUser) {
     return <Login />;
@@ -50,6 +52,7 @@ function Portal() {
             <NavLink to="/products">Products</NavLink>
             <NavLink to="/clients">Clients</NavLink>
             <NavLink to="/deployments">Deployments</NavLink>
+            <NavLink to="/environments">Environments</NavLink>
           </div>
 
           <div className="nav-group nav-group-organisation">
@@ -90,6 +93,17 @@ function Portal() {
               <Route path="/clients/:id/edit" element={<ClientForm />} />
 
               <Route path="/deployments" element={<Deployments />} />
+
+              <Route path="/environments" element={<Environments />} />
+              <Route
+                path="/environments/new"
+                element={canEdit ? <EnvironmentForm /> : <Navigate to="/environments" replace />}
+              />
+              <Route
+                path="/environments/:id/edit"
+                element={canEdit ? <EnvironmentForm /> : <Navigate to="/environments" replace />}
+              />
+
               <Route path="/team" element={<TeamMembers />} />
 
               <Route
