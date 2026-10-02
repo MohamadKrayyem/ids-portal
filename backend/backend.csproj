@@ -29,4 +29,10 @@
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Never ship the local appsettings.json (real secrets, localhost URL) to Azure.
+         In Azure, settings come from App Service configuration instead. -->
+    <Content Update="appsettings.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
 </Project>

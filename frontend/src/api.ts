@@ -25,7 +25,8 @@ import type {
   DashboardStats,
 } from './types';
 
-const BASE_URL = 'http://localhost:5000/api';
+// Dev: the Vite server talks to the local API. Production: the API serves this app, so same origin.
+const BASE_URL = import.meta.env.DEV ? 'http://localhost:5000/api' : '/api';
 
 let authToken: string | null = null;
 

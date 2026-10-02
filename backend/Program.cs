@@ -1,5 +1,4 @@
 // App startup: services, JWT auth, CORS, the request pipeline and the first-admin seed.
-using System.Security.Cryptography;
 using System.Text;
 using Backend;
 using Dapper;
@@ -39,23 +38,35 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
-var frontendOrigin = RequireSetting(builder.Configuration["Cors:FrontendOrigin"], "Cors:FrontendOrigin");
-builder.Services.AddCors(options =>
+// CORS is only needed when the frontend runs on its own origin (the Vite dev server).
+// In Azure the API serves the built frontend itself, so the setting can be left out.
+var frontendOrigin = builder.Configuration["Cors:FrontendOrigin"];
+if (!string.IsNullOrWhiteSpace(frontendOrigin))
 {
-    options.AddDefaultPolicy(policy =>
+    builder.Services.AddCors(options =>
     {
-        policy.WithOrigins(frontendOrigin)
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        options.AddDefaultPolicy(policy =>
+        {
+            policy.WithOrigins(frontendOrigin)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
     });
-});
+}
 
 var app = builder.Build();
 
-app.UseCors();
+// Serves the built React app from wwwroot (Vite writes its output there).
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+if (!string.IsNullOrWhiteSpace(frontendOrigin)) app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Any non-API, non-file route belongs to the React router.
+app.MapFallbackToFile("index.html");
 
 await SeedAdminAsync(app);
 
@@ -72,9 +83,18 @@ static string RequireSetting(string? value, string key)
         "to backend/appsettings.json and fill in the values.");
 }
 
+// Creates the first Admin from Seed:AdminEmail / Seed:AdminPassword when no Admin exists yet.
+// If either setting is missing, seeding is skipped.
 static async Task SeedAdminAsync(WebApplication app)
 {
-    const string seedEmail = "admin@idsfintech.com";
+    var seedEmail = app.Configuration["Seed:AdminEmail"];
+    var seedPassword = app.Configuration["Seed:AdminPassword"];
+
+    if (string.IsNullOrWhiteSpace(seedEmail) || string.IsNullOrWhiteSpace(seedPassword))
+    {
+        app.Logger.LogInformation("Seed:AdminEmail / Seed:AdminPassword not set - skipping Admin seed.");
+        return;
+    }
 
     try
     {
@@ -86,8 +106,6 @@ static async Task SeedAdminAsync(WebApplication app)
             "SELECT COUNT(*) FROM Users WHERE Role = 'Admin'");
         if (adminCount > 0) return;
 
-        var seedPassword = GenerateSeedPassword();
-
         var hash = BCrypt.Net.BCrypt.HashPassword(seedPassword);
         await conn.ExecuteAsync(
             @"INSERT INTO Users (FullName, Email, PasswordHash, Role, IsActive)
@@ -95,24 +113,10 @@ static async Task SeedAdminAsync(WebApplication app)
             new { FullName = "System Admin", Email = seedEmail, PasswordHash = hash });
 
         app.Logger.LogInformation(
-            "Seeded first Admin account: {Email} / {Password} - change this password after logging in.",
-            seedEmail, seedPassword);
+            "Seeded first Admin account: {Email} - change this password after logging in.", seedEmail);
     }
     catch (Exception ex)
     {
         app.Logger.LogWarning(ex, "Could not seed the Admin account. Has the database been created?");
     }
-}
-
-static string GenerateSeedPassword()
-{
-    const string alphabet =
-        "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-    const int length = 20;
-
-    var chars = new char[length];
-    for (var i = 0; i < length; i++)
-        chars[i] = alphabet[RandomNumberGenerator.GetInt32(alphabet.Length)];
-
-    return new string(chars);
 }

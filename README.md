@@ -90,17 +90,20 @@ backend first.
 
 ## First login
 
-On a database that has no Admin account yet, the API creates one when it starts
-and prints the credentials to the console:
+On a database that has no Admin account yet, the API creates one when it starts,
+using the email and password from configuration:
 
-```
-Seeded first Admin account: admin@idsfintech.com / <20 random characters>
+```json
+"Seed": {
+  "AdminEmail": "admin@example.com",
+  "AdminPassword": "your-first-admin-password"
+}
 ```
 
-The password is generated at startup and printed once. It is not stored in the
-source or in git, so every installation gets a different one. Copy it out of the
-console before you clear it. If you lose it, delete the Admin row and restart to
-seed a new one.
+Put these in `backend/appsettings.json` locally, or in App Service settings in
+Azure (`Seed__AdminEmail`, `Seed__AdminPassword`). If either is missing, no
+account is seeded. Once the Admin exists, the values are ignored and can be
+removed.
 
 Sign in with those credentials, then use the Users page to create real accounts
 and change or remove the seeded one.
